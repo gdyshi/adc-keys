@@ -22,17 +22,16 @@
 #include <linux/input.h>
 #include <linux/adc.h>
 #include <linux/slab.h>
-
 #include <linux/iio/iio.h>
 #include <linux/iio/machine.h>
 #include <linux/iio/driver.h>
 #include <linux/iio/consumer.h>
-
 #include <asm/gpio.h>
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_gpio.h>
 #include <linux/of_platform.h>
+#include <linux/poll.h>
 
 #define EMPTY_ADVALUE					950
 #define DRIFT_ADVALUE					70
@@ -44,6 +43,7 @@
 
 #ifdef ADD_KEYS_CHRDEV
 #define 	DEVICE_NAME                "ADCvib"
+int  adc_value;
 struct keys_chardev {
     struct cdev         cdev;
     dev_t               devno;
@@ -212,7 +212,7 @@ static void adc_key_poll(struct work_struct *work)
     if (!ddata->in_suspend)
     {
         result = rk_key_adc_iio_read(ddata);
-        printk("result:%d\n",result);
+        adc_value = result;
         if(result > INVALID_ADVALUE && result < EMPTY_ADVALUE)
             ddata->result = result;
         for (i = 0; i < ddata->nbuttons; i++) 
@@ -326,32 +326,25 @@ ssize_t ADC_release(struct inode * inode, struct file * file)
 
 ssize_t ADC_read(struct file * file,char * buf,size_t count,loff_t * f_ops)
 {
-#if 0
-	char sdas[5]={0,0,0};
-	ssize_t status = 3;
-	unsigned long missing;
-
-	sdas[0] = (0xff&adc0key_val) ;
-	sdas[1] = (0xff&(adc0key_val>>8)) ;
-
-	missing = copy_to_user(buf, sdas, status);
-	
-	if (missing == status)
-		status = -EFAULT;
-	else
-		status = status - missing; 
-
-    return status; 
-#endif
+	char sdas[1]={0};
+	ssize_t size = 1;
+	unsigned long res;
 	printk("ADC_open!\n"); 
-    return 0;
+
+	sdas[0] = adc_value;
+
+	res = copy_to_user(buf, sdas, size);
+	if (res == size)
+		size = -EFAULT;
+	else
+	size = size - res; 
+
+    return size; 
 }
 
 ssize_t ADC_write (struct file * file,const char * buf, size_t count,loff_t * f_ops)
 {
-	//size_t IOIndex = count & 0xFF;
-	//size_t IOCmd = (count>>8) &0xFF;
-	
+	printk("ADC_write!\n"); 
 	return count;
 }
 
